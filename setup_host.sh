@@ -24,7 +24,8 @@ explain_step "Installing/Updating Host Dependencies" \
     "pacman -Sy --noconfirm base-devel bison gawk texinfo wget sudo"
 
 # Force refresh and install needed tools
-pacman -Sy --noconfirm base-devel bison gawk texinfo wget sudo || error_exit "Failed to install dependencies via pacman."
+# Use --needed to skip re-installing up-to-date packages (saves RAM/COW space)
+pacman -Sy --noconfirm --needed base-devel bison gawk texinfo wget sudo || error_exit "Failed to install dependencies via pacman."
 
 explain_step "Strict Host Requirement Check" \
     "Verifying that all tools meet the exact version requirements specified in LFS Chapter 2.2. The script will STOP if any check fails." \
