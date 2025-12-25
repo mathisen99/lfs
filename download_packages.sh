@@ -17,9 +17,8 @@ source ./common.sh
 print_header "Phase 3: Downloading Packages"
 
 # Configuration
-MAX_RETRIES=3           # Max attempts per file
-TIMEOUT=30              # Seconds to wait before considering download stalled
-PARALLEL_JOBS=4         # Number of parallel downloads (set to 1 for sequential)
+MAX_RETRIES=5           # Max attempts per file
+TIMEOUT=60              # Seconds to wait before considering download stalled
 
 explain_step "Fetching wget-list" \
     "We download the list of packages and patches from the LFS book (stable). This ensures we have the correct versions." \
@@ -41,39 +40,53 @@ download_file() {
     local filename=$(basename "$url")
     local attempt=1
     
-    # Skip if file already exists and is complete (we'll verify with md5 later)
-    if [ -f "$filename" ]; then
+    # Skip if file already exists and has reasonable size
+    if [ -f "$filename" ] && [ $(stat -c%s "$filename" 2>/dev/null || echo 0) -gt 1000 ]; then
         echo -e "${CYAN}[SKIP]${NC} $filename already exists"
         return 0
     fi
+    
+    # Remove any tiny/corrupt partial file
+    [ -f "$filename" ] && rm -f "$filename"
     
     while [ $attempt -le $MAX_RETRIES ]; do
         echo -e "${YELLOW}[DOWN]${NC} $filename (attempt $attempt/$MAX_RETRIES)"
         
         # wget options:
         #   --continue          Resume partial downloads
-        #   --timeout=TIMEOUT   Set read timeout (stall detection)
+        #   --timeout           Set connect timeout
+        #   --read-timeout      Timeout if no data received (stall detection)
         #   --tries=1           Don't let wget retry internally (we handle it)
-        #   --read-timeout      Timeout if no data received
         #   --no-check-certificate  Some mirrors have cert issues
         if wget --continue \
                 --timeout=$TIMEOUT \
                 --read-timeout=$TIMEOUT \
+                --dns-timeout=30 \
+                --connect-timeout=30 \
                 --tries=1 \
+                --waitretry=3 \
                 --no-check-certificate \
-                -q --show-progress \
+                --progress=bar:force:noscroll \
                 "$url" 2>&1; then
-            echo -e "${GREEN}[DONE]${NC} $filename"
-            return 0
+            
+            # Verify file was actually downloaded and has content
+            if [ -f "$filename" ] && [ $(stat -c%s "$filename" 2>/dev/null || echo 0) -gt 1000 ]; then
+                echo -e "${GREEN}[DONE]${NC} $filename"
+                return 0
+            else
+                echo -e "${RED}[FAIL]${NC} $filename - file empty or missing after download"
+                rm -f "$filename" 2>/dev/null
+            fi
         else
             echo -e "${RED}[FAIL]${NC} $filename - attempt $attempt failed"
-            # Remove partial file if it's tiny (likely error page)
-            if [ -f "$filename" ] && [ $(stat -c%s "$filename" 2>/dev/null || echo 0) -lt 1000 ]; then
-                rm -f "$filename"
-            fi
-            attempt=$((attempt + 1))
-            # Brief pause before retry
-            sleep 2
+            rm -f "$filename" 2>/dev/null
+        fi
+        
+        attempt=$((attempt + 1))
+        
+        if [ $attempt -le $MAX_RETRIES ]; then
+            echo -e "${YELLOW}       Waiting 5s before retry...${NC}"
+            sleep 5
         fi
     done
     
@@ -106,8 +119,8 @@ TOTAL_PACKAGES=$(wc -l < wget-list)
 echo -e "${CYAN}Total packages to download: $TOTAL_PACKAGES${NC}"
 
 explain_step "Downloading Sources" \
-    "Now we download all $TOTAL_PACKAGES packages. Downloads will automatically retry if they stall or fail. This might take a while depending on internet speed." \
-    "Timeout: ${TIMEOUT}s | Retries: $MAX_RETRIES | Parallel: $PARALLEL_JOBS"
+    "Now we download all $TOTAL_PACKAGES packages. Downloads will automatically retry if they stall or fail (up to $MAX_RETRIES attempts, ${TIMEOUT}s timeout). This might take a while depending on internet speed." \
+    "wget --continue --timeout=$TIMEOUT --tries=1 <url>"
 
 #===============================================================================
 # Download all packages
