@@ -19,16 +19,25 @@ function print_header() {
 
 # Interactive explanation function
 # Usage: explain_step "Title" "Explanation" "Commands (optional)"
+# Usage: explain_step "Title" "Explanation" "Commands (optional)"
 function explain_step() {
     local title="$1"
     local explanation="$2"
     local commands="$3"
 
     echo -e "${YELLOW}>>> NEXT STEP: ${title}${NC}"
-    echo -e "${BLUE}EXPLANATION:${NC} $explanation"
+    
+    echo -e "${BLUE}EXPLANATION:${NC}"
+    # Wrap text at 80 chars and indent by 2 spaces
+    echo -e "$explanation" | fold -s -w 80 | sed 's/^/  /'
+    
     if [ -n "$commands" ]; then
+        echo ""
         echo -e "${CYAN}COMMANDS TO RUN:${NC}"
-        echo -e "$commands"
+        # Wrap at 80 chars, indent by 2 spaces. 
+        # Note: Code usually shouldn't be wrapped blindly, but user complained about horizontal length.
+        # We'll use look for newlines in input to respect them first.
+        echo -e "$commands" | sed 's/^/  /'
     fi
     echo ""
     echo -e "Press ${GREEN}[ENTER]${NC} to execute this step..."

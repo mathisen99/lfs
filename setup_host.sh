@@ -20,26 +20,57 @@ timedatectl set-ntp true || echo "Warning: timedatectl failed, proceeding if dat
 echo -e "${GREEN}Time updated.${NC}"
 
 explain_step "Expanding RAM Filesystem" \
-    "The Arch ISO default filesystem size is small. We will expand it using our verified Swap space and move the package cache to the physical disk.\nWe will attempt to find the correct COW partition to resize." \
-    "mount -o remount,size=8G /run/archiso/cow (or others)\nmkdir -p /mnt/lfs/cache/pacman"
+    "The Arch ISO default filesystem size is small. We will dynamically find the backing COW filesystem and resize it using our verified Swap space." \
+    "mount -o remount,size=8G <detected_cow_path>\nmkdir -p /mnt/lfs/cache/pacman"
 
-# Try to find the writable tmpfs backing the root overlay
-resized=0
-for path in /run/archiso/cow /run/archiso/airootfs /; do
-    if mountpoint -q "$path" || [ "$path" == "/" ]; then
-        echo "Attempting to resize $path..."
-        if mount -o remount,size=8G "$path"; then
-            echo -e "${GREEN}Successfully resized $path.${NC}"
-            resized=1
-            break
-        fi
+# Smart COW Resize Function
+function resize_cow() {
+    echo "Attempting to detect COW device..."
+    
+    # 1. Find the upperdir of the root overlay
+    # This is usually something like /run/archiso/cowspace/upper
+    UPPERDIR=$(grep "overlay / " /proc/mounts | grep -o 'upperdir=[^,]*' | cut -d= -f2)
+    
+    if [ -z "$UPPERDIR" ]; then
+        echo "Could not detect overlay upperdir from /proc/mounts. Trying standard paths..."
+        # Fallback to standard paths if parsing failed
+        for path in /run/archiso/cowspace /run/archiso/cow; do
+            if mountpoint -q "$path"; then
+                echo "Found standard path: $path"
+                mount -o remount,size=8G "$path" && return 0
+            fi
+        done
+        return 1
     fi
-done
+    
+    echo "Found upperdir at: $UPPERDIR"
+    
+    # 2. Find the mount point for that directory
+    # effective mount point for /run/archiso/cowspace/upper is /run/archiso/cowspace
+    COW_MOUNT=$(df --output=target "$UPPERDIR" | tail -n1)
+    
+    if [ -z "$COW_MOUNT" ]; then
+        echo "Could not determine mount point for $UPPERDIR"
+        return 1
+    fi
+    
+    echo "Detected COW mount point: $COW_MOUNT"
+    
+    # 3. Resize it
+    if mount -o remount,size=8G "$COW_MOUNT"; then
+        echo -e "${GREEN}Successfully resized $COW_MOUNT to 8G.${NC}"
+        # detailed check
+        df -h "$COW_MOUNT"
+        return 0
+    else
+        echo -e "${RED}Failed to resize $COW_MOUNT.${NC}"
+        return 1
+    fi
+}
 
-if [ $resized -eq 0 ]; then
-    echo -e "${RED}Warning: Could not resize root filesystem. Installation might fail due to lack of space.${NC}"
-    echo "Current disk usage:"
-    df -h /
+if ! resize_cow; then
+    echo -e "${RED}Warning: COW resize failed. We will try to proceed but might run out of space.${NC}"
+    echo "Manual workaround: mount -o remount,size=8G /run/archiso/cowspace (or correct path)"
 fi
 
 # 2. Use physical disk for download cache to save RAM
