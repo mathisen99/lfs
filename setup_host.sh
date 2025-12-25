@@ -20,11 +20,27 @@ timedatectl set-ntp true || echo "Warning: timedatectl failed, proceeding if dat
 echo -e "${GREEN}Time updated.${NC}"
 
 explain_step "Expanding RAM Filesystem" \
-    "The Arch ISO default filesystem size is small. We will expand it using our verified Swap space and move the package cache to the physical disk." \
-    "mount -o remount,size=8G /run/archiso/cow\nmkdir -p /mnt/lfs/cache/pacman"
+    "The Arch ISO default filesystem size is small. We will expand it using our verified Swap space and move the package cache to the physical disk.\nWe will attempt to find the correct COW partition to resize." \
+    "mount -o remount,size=8G /run/archiso/cow (or others)\nmkdir -p /mnt/lfs/cache/pacman"
 
-# 1. Remount COW to allow 8G (backed by swap)
-mount -o remount,size=8G /run/archiso/cow
+# Try to find the writable tmpfs backing the root overlay
+resized=0
+for path in /run/archiso/cow /run/archiso/airootfs /; do
+    if mountpoint -q "$path" || [ "$path" == "/" ]; then
+        echo "Attempting to resize $path..."
+        if mount -o remount,size=8G "$path"; then
+            echo -e "${GREEN}Successfully resized $path.${NC}"
+            resized=1
+            break
+        fi
+    fi
+done
+
+if [ $resized -eq 0 ]; then
+    echo -e "${RED}Warning: Could not resize root filesystem. Installation might fail due to lack of space.${NC}"
+    echo "Current disk usage:"
+    df -h /
+fi
 
 # 2. Use physical disk for download cache to save RAM
 mkdir -p /mnt/lfs/cache/pacman
