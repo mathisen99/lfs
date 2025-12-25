@@ -71,7 +71,7 @@ download_file() {
             if [ -f "$filename" ] && [ $(stat -c%s "$filename" 2>/dev/null || echo 0) -lt 1000 ]; then
                 rm -f "$filename"
             fi
-            ((attempt++))
+            attempt=$((attempt + 1))
             # Brief pause before retry
             sleep 2
         fi
@@ -117,7 +117,7 @@ CURRENT=0
 
 # Read URLs and download
 while IFS= read -r url; do
-    ((CURRENT++))
+    CURRENT=$((CURRENT + 1))
     echo -e "\n${CYAN}[$CURRENT/$TOTAL_PACKAGES]${NC}"
     
     if ! download_file "$url"; then
