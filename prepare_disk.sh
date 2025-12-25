@@ -15,7 +15,22 @@ echo -e "${GREEN}Disk wiped.${NC}"
 
 explain_step "Creating Partitions" \
     "We will create a 4GB Swap partition and use the rest for the Root (/) partition using fdisk." \
-    "fdisk $LFS_DISK << EOF\nn\np\n1\n\n+4G\n...\nEOF"
+    "fdisk $LFS_DISK << EOF
+n   # New partition
+p   # Primary
+1   # Partition number
+    # Default start
++4G # Swap size
+n   # New partition
+p   # Primary
+2   # Partition number
+    # Default start
+    # Default end
+t   # Change type
+1   # Select partition 1
+82  # Swap type
+w   # Write changes
+EOF"
 
 # Use fdisk to create partitions (non-interactive via HEREDOC)
 # n: new partition, p: primary, 1: partition 1, default, +4G (swap)
