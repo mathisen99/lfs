@@ -19,13 +19,22 @@ explain_step "Updating System Clock" \
 timedatectl set-ntp true || echo "Warning: timedatectl failed, proceeding if date is correct."
 echo -e "${GREEN}Time updated.${NC}"
 
-explain_step "Installing/Updating Host Dependencies" \
-    "Ensuring Arch Linux host has all necessary development tools (base-devel, bison, gawk, texinfo, etc.)." \
-    "pacman -Sy --noconfirm base-devel bison gawk texinfo wget sudo"
+explain_step "Expanding RAM Filesystem" \
+    "The Arch ISO default filesystem size is small. We will expand it using our verified Swap space and move the package cache to the physical disk." \
+    "mount -o remount,size=8G /run/archiso/cow\nmkdir -p /mnt/lfs/cache/pacman"
+
+# 1. Remount COW to allow 8G (backed by swap)
+mount -o remount,size=8G /run/archiso/cow
+
+# 2. Use physical disk for download cache to save RAM
+mkdir -p /mnt/lfs/cache/pacman
+
+explain_step "Installing Dependencies" \
+    "Installing base-devel and toolchain using the physical disk for cache." \
+    "pacman -Sy ... --cachedir /mnt/lfs/cache/pacman"
 
 # Force refresh and install needed tools
-# Use --needed to skip re-installing up-to-date packages (saves RAM/COW space)
-pacman -Sy --noconfirm --needed base-devel bison gawk texinfo wget sudo || error_exit "Failed to install dependencies via pacman."
+pacman -Sy --noconfirm --needed --cachedir /mnt/lfs/cache/pacman base-devel bison gawk texinfo wget sudo || error_exit "Failed to install dependencies via pacman."
 
 explain_step "Strict Host Requirement Check" \
     "Verifying that all tools meet the exact version requirements specified in LFS Chapter 2.2. The script will STOP if any check fails." \
