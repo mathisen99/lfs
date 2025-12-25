@@ -109,7 +109,11 @@ case $(uname -m) in
             ln -sfv ../lib/ld-linux-x86-64.so.2 $LFS/lib64/ld-lsb-x86-64.so.3 ;;
 esac
 
-patch -np1 -i ../glibc-*.patch || true # Apply fhs patch if present, ignore if not
+# Apply fhs patch if present
+GLIBC_PATCH=$(ls ../glibc-*.patch 2>/dev/null | head -n1)
+if [ -n "$GLIBC_PATCH" ]; then
+    patch -Np1 -i "$GLIBC_PATCH"
+fi
 
 mkdir -v build
 cd build
@@ -142,6 +146,7 @@ explain_step "Building Libstdc++ (Pass 1)" \
 
 tar -xf gcc-*.tar.xz
 cd gcc-*/
+GCC_VERSION=$(cat gcc/BASE-VER)
 mkdir -v build
 cd build
 ../libstdc++-v3/configure           \
@@ -151,7 +156,7 @@ cd build
     --disable-multilib              \
     --disable-nls                   \
     --disable-libstdcxx-pch         \
-    --with-gxx-include-dir=/tools/$LFS_TGT/include/c++/14.2.0
+    --with-gxx-include-dir=/tools/$LFS_TGT/include/c++/$GCC_VERSION
 
 make
 make DESTDIR=$LFS install

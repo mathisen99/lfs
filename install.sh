@@ -15,11 +15,11 @@ if [ "$confirmation" != "YES" ]; then
     exit 1
 fi
 
-# 1. Disk Preparation (moved first to enable swap and prevent RAM exhaustion)
-./prepare_disk.sh
-
-# 2. Host Setup
+# 1. Host Setup (version checks and dependencies - before disk ops)
 ./setup_host.sh
+
+# 2. Disk Preparation (partitioning, formatting, mounting)
+./prepare_disk.sh
 
 # 3. Download Packages
 ./download_packages.sh

@@ -19,7 +19,6 @@ function print_header() {
 
 # Interactive explanation function
 # Usage: explain_step "Title" "Explanation" "Commands (optional)"
-# Usage: explain_step "Title" "Explanation" "Commands (optional)"
 function explain_step() {
     local title="$1"
     local explanation="$2"

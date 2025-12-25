@@ -58,20 +58,20 @@ EOF
 echo -e "${GREEN}Partitions created.${NC}"
 
 explain_step "Formatting Partitions" \
-    "We need to create file systems on these partitions. ext4 for root ($LFS_DISK)2 and mkswap for swap ($LFS_DISK)1." \
-    "mkswap ${LFS_DISK}1\nswapon ${LFS_DISK}1\nmkfs.ext4 ${LFS_DISK}2"
+    "We need to create file systems on these partitions. ext4 for root (${LFS_DISK_PART}2) and mkswap for swap (${LFS_DISK_PART}1)." \
+    "mkswap ${LFS_DISK_PART}1\nswapon ${LFS_DISK_PART}1\nmkfs.ext4 ${LFS_DISK_PART}2"
 
-mkswap ${LFS_DISK}1
-swapon ${LFS_DISK}1
-mkfs.ext4 ${LFS_DISK}2
+mkswap ${LFS_DISK_PART}1
+swapon ${LFS_DISK_PART}1
+mkfs.ext4 ${LFS_DISK_PART}2
 echo -e "${GREEN}Formatting complete.${NC}"
 
 explain_step "Mounting LFS Partition" \
     "We mount the new partition to $LFS so we can start installing files there." \
-    "mkdir -pv $LFS\nmount -v -t ext4 ${LFS_DISK}2 $LFS"
+    "mkdir -pv $LFS\nmount -v -t ext4 ${LFS_DISK_PART}2 $LFS"
 
 mkdir -pv $LFS
-mount -v -t ext4 ${LFS_DISK}2 $LFS
+mount -v -t ext4 ${LFS_DISK_PART}2 $LFS
 echo -e "${GREEN}Mounted $LFS.${NC}"
 
 explain_step "Creating Sources Directory" \
@@ -81,3 +81,17 @@ explain_step "Creating Sources Directory" \
 mkdir -pv $LFS/sources
 chmod -v a+wt $LFS/sources
 echo -e "${GREEN}Sources directory created.${NC}"
+
+explain_step "Creating LFS Directory Structure" \
+    "Creating the basic directory structure needed for the toolchain build." \
+    "mkdir -pv \$LFS/{etc,var,tools} \$LFS/usr/{bin,lib,sbin}\n..."
+
+mkdir -pv $LFS/{etc,var,tools}
+mkdir -pv $LFS/usr/{bin,lib,sbin}
+for i in bin lib sbin; do
+  ln -sfv usr/$i $LFS/$i
+done
+case $(uname -m) in
+  x86_64) mkdir -pv $LFS/lib64 ;;
+esac
+echo -e "${GREEN}LFS directory structure created.${NC}"

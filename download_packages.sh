@@ -9,6 +9,11 @@ explain_step "Fetching wget-list" \
     "We download the list of packages and patches from the LFS book (stable). This ensures we have the correct versions." \
     "wget .../wget-list\nwget .../md5sums"
 
+# Verify mount exists
+if ! mountpoint -q $LFS; then
+    error_exit "$LFS is not mounted. Run prepare_disk.sh first."
+fi
+
 mkdir -p $LFS/sources
 cd $LFS/sources
 

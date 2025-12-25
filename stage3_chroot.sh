@@ -10,6 +10,7 @@ explain_step "Bind Mounting Virtual Kernel File Systems" \
 
 mkdir -pv $LFS/{dev,proc,sys,run}
 mount -v --bind /dev $LFS/dev
+mkdir -pv $LFS/dev/pts
 mount -v --bind /dev/pts $LFS/dev/pts
 mount -vt proc proc $LFS/proc
 mount -vt sysfs sysfs $LFS/sys
@@ -34,19 +35,22 @@ chroot "$LFS" /usr/bin/env -i   \
     TERM="$TERM"                \
     PS1='(lfs chroot) \u:\w\$ ' \
     PATH=/usr/bin:/usr/sbin     \
+    LFS_DISK="$LFS_DISK"        \
+    LFS_DISK_PART="$LFS_DISK_PART" \
     /bin/bash --login +h -c "bash /install_system_inner.sh"
 
 echo -e "${GREEN}Left Chroot. Build process finished successfully?${NC}"
 
 explain_step "Unmounting Filesystems" \
     "Cleaning up mounts before reboot." \
-    "umount -v $LFS/dev...\numount -v $LFS"
+    "umount -v $LFS/dev/pts...\numount -v $LFS/proc..."
 
 umount -v $LFS/dev/pts
 umount -v $LFS/dev
 umount -v $LFS/run
 umount -v $LFS/proc
 umount -v $LFS/sys
-umount -v $LFS
 
+echo -e "${GREEN}Virtual filesystems unmounted.${NC}"
+echo -e "${YELLOW}Note: $LFS is still mounted. Unmount manually before reboot with: umount $LFS${NC}"
 echo -e "${GREEN}All done. You can now reboot into your LFS system!${NC}"

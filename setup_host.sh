@@ -73,17 +73,12 @@ if ! resize_cow; then
     echo "Manual workaround: mount -o remount,size=8G /run/archiso/cowspace (or correct path)"
 fi
 
-# 2. Use physical disk for download cache to save RAM
-mkdir -p /mnt/lfs/cache/pacman
-
 explain_step "Installing Dependencies" \
-    "Installing base-devel and toolchain using the physical disk for cache." \
-    "pacman -Sy --noconfirm --needed \\
-    --cachedir /mnt/lfs/cache/pacman \\
-    base-devel bison gawk texinfo wget sudo"
+    "Installing base-devel and toolchain." \
+    "pacman -Sy --noconfirm --needed base-devel bison gawk texinfo wget sudo"
 
-# Force refresh and install needed tools
-pacman -Sy --noconfirm --needed --cachedir /mnt/lfs/cache/pacman base-devel bison gawk texinfo wget sudo || error_exit "Failed to install dependencies via pacman."
+# Force refresh and install needed tools (cache dir will be set up after disk is mounted)
+pacman -Sy --noconfirm --needed base-devel bison gawk texinfo wget sudo || error_exit "Failed to install dependencies via pacman."
 
 explain_step "Strict Host Requirement Check" \
     "Verifying that all tools meet the exact version requirements specified in LFS Chapter 2.2. The script will STOP if any check fails." \
@@ -94,6 +89,12 @@ function check_version() {
     local tool=$1
     local current=$2
     local required=$3
+    
+    # Check if version extraction failed
+    if [ -z "$current" ]; then
+        echo -e "${RED}[FAIL] $tool: Could not detect version${NC}"
+        error_exit "Could not detect version for $tool. Is it installed?"
+    fi
     
     # Use sort -V to compare versions. 
     # If the lowest version in the sorted list of (current, required) is the required one, then current >= required.
@@ -108,7 +109,8 @@ function check_version() {
 # Robust Version Extraction Function
 function extract_version() {
     # Extracts the first version-like number (X.Y or X.Y.Z) from stdin
-    grep -oE "[0-9]+\.[0-9]+(\.[0-9]+)?" | head -n1
+    # Use || true to prevent grep exit code 1 from failing with set -e
+    grep -oE "[0-9]+\.[0-9]+(\.[0-9]+)?" | head -n1 || true
 }
 
 # --- Bash ---
@@ -144,12 +146,12 @@ gcc_ver=$(gcc --version | head -n1 | extract_version)
 check_version "GCC" "$gcc_ver" "4.8"
 
 # --- Glibc ---
-glibc_ver=$(ldd --version | head -n1 | extract_version)
+glibc_ver=$(ldd --version 2>&1 | head -n1 | extract_version)
 check_version "Glibc" "$glibc_ver" "2.11"
 
 # --- Grep ---
 grep_ver=$(grep --version | head -n1 | extract_version)
-check_version "Grep" "$grep_ver" "2.5.1a"
+check_version "Grep" "$grep_ver" "2.5.1"
 
 # --- Gzip ---
 gzip_ver=$(gzip --version | head -n1 | extract_version)
