@@ -78,7 +78,9 @@ mkdir -p /mnt/lfs/cache/pacman
 
 explain_step "Installing Dependencies" \
     "Installing base-devel and toolchain using the physical disk for cache." \
-    "pacman -Sy ... --cachedir /mnt/lfs/cache/pacman"
+    "pacman -Sy --noconfirm --needed \\
+    --cachedir /mnt/lfs/cache/pacman \\
+    base-devel bison gawk texinfo wget sudo"
 
 # Force refresh and install needed tools
 pacman -Sy --noconfirm --needed --cachedir /mnt/lfs/cache/pacman base-devel bison gawk texinfo wget sudo || error_exit "Failed to install dependencies via pacman."
@@ -103,82 +105,86 @@ function check_version() {
     fi
 }
 
+# Robust Version Extraction Function
+function extract_version() {
+    # Extracts the first version-like number (X.Y or X.Y.Z) from stdin
+    grep -oE "[0-9]+\.[0-9]+(\.[0-9]+)?" | head -n1
+}
+
 # --- Bash ---
-bash_ver=$(bash --version | head -n1 | cut -d" " -f4 | cut -d"(" -f1)
+bash_ver=$(bash --version | head -n1 | extract_version)
 check_version "Bash" "$bash_ver" "3.2"
 
 # --- Binutils ---
-binutils_ver=$(ld --version | head -n1 | cut -d" " -f7)
+binutils_ver=$(ld --version | head -n1 | extract_version)
 check_version "Binutils" "$binutils_ver" "2.13.1"
 
 # --- Bison ---
-bison_ver=$(bison --version | head -n1 | cut -d" " -f4)
+bison_ver=$(bison --version | head -n1 | extract_version)
 check_version "Bison" "$bison_ver" "2.7"
 
 # --- Coreutils (chown as proxy) ---
-# some distros output "chown (GNU coreutils) 9.1", others just 9.1
-chown_ver=$(chown --version | head -n1 |  awk '{print $NF}')
+chown_ver=$(chown --version | head -n1 | extract_version)
 check_version "Coreutils" "$chown_ver" "6.9"
 
 # --- Diffutils ---
-diff_ver=$(diff --version | head -n1 | awk '{print $NF}')
+diff_ver=$(diff --version | head -n1 | extract_version)
 check_version "Diffutils" "$diff_ver" "2.8.1"
 
 # --- Findutils ---
-find_ver=$(find --version | head -n1 | awk '{print $NF}')
+find_ver=$(find --version | head -n1 | extract_version)
 check_version "Findutils" "$find_ver" "4.2.31"
 
 # --- Gawk ---
-gawk_ver=$(gawk --version | head -n1 | cut -d" " -f3 | cut -d"," -f1)
+gawk_ver=$(gawk --version | head -n1 | extract_version)
 check_version "Gawk" "$gawk_ver" "4.0.1"
 
 # --- GCC ---
-gcc_ver=$(gcc --version | head -n1 | cut -d" " -f3)
+gcc_ver=$(gcc --version | head -n1 | extract_version)
 check_version "GCC" "$gcc_ver" "4.8"
 
 # --- Glibc ---
-# ldd output: "ldd (GNU libc) 2.39"
-glibc_ver=$(ldd --version | head -n1 | awk '{print $NF}')
+glibc_ver=$(ldd --version | head -n1 | extract_version)
 check_version "Glibc" "$glibc_ver" "2.11"
 
 # --- Grep ---
-grep_ver=$(grep --version | head -n1 | awk '{print $NF}')
+grep_ver=$(grep --version | head -n1 | extract_version)
 check_version "Grep" "$grep_ver" "2.5.1a"
 
 # --- Gzip ---
-gzip_ver=$(gzip --version | head -n1 | awk '{print $NF}')
+gzip_ver=$(gzip --version | head -n1 | extract_version)
 check_version "Gzip" "$gzip_ver" "1.3.12"
 
 # --- Make ---
-make_ver=$(make --version | head -n1 | cut -d" " -f3 | cut -d"," -f1)
+make_ver=$(make --version | head -n1 | extract_version)
 check_version "Make" "$make_ver" "3.81"
 
 # --- Patch ---
-patch_ver=$(patch --version | head -n1 | awk '{print $NF}')
+patch_ver=$(patch --version | head -n1 | extract_version)
 check_version "Patch" "$patch_ver" "2.5.4"
 
 # --- Perl ---
-perl_ver=$(perl -V:version | cut -d"'" -f2)
+perl_ver=$(perl -V:version | cut -d"'" -f2) # Keep original perl logic as it's specific
 check_version "Perl" "$perl_ver" "5.8.8"
 
 # --- Python ---
-python_ver=$(python3 --version | cut -d" " -f2)
+python_ver=$(python3 --version | extract_version)
 check_version "Python" "$python_ver" "3.4"
 
 # --- Sed ---
-sed_ver=$(sed --version | head -n1 | awk '{print $NF}')
+sed_ver=$(sed --version | head -n1 | extract_version)
 check_version "Sed" "$sed_ver" "4.1.5"
 
 # --- Tar ---
-tar_ver=$(tar --version | head -n1 | awk '{print $NF}')
+tar_ver=$(tar --version | head -n1 | extract_version)
 check_version "Tar" "$tar_ver" "1.22"
 
 # --- Texinfo ---
-texinfo_ver=$(makeinfo --version | head -n1 | awk '{print $NF}')
+texinfo_ver=$(makeinfo --version | head -n1 | extract_version)
 check_version "Texinfo" "$texinfo_ver" "4.7"
 
 # --- Xz ---
-xz_ver=$(xz --version | head -n1 | awk '{print $NF}')
+xz_ver=$(xz --version | head -n1 | extract_version)
 check_version "Xz" "$xz_ver" "5.0.0"
 
 echo -e "${GREEN}All Host Requirements Met!${NC}"
